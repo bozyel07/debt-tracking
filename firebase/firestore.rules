@@ -1,0 +1,92 @@
+rules_version = '2';
+// Debt Tracking security rules.
+// Paste this into Firebase console > Firestore Database > Rules, then press Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function role() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function isAdmin()  { return signedIn() && role() == 'admin'; }
+    function canAdd()   { return signedIn() && role() in ['admin', 'user']; }
+    function canRead()  { return signedIn() && role() in ['admin', 'user', 'observer']; }
+    function changed()  { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function validMoney(d) {
+      return d.amount is number && d.amount > 0
+        && d.currency in ['TRY', 'USD', 'EUR']
+        && d.due_date is string && d.bank is string && d.bank.size() > 0;
+    }
+    function setupPath()   { return /databases/$(database)/documents/meta/setup; }
+
+    // The first account claims this document and becomes the owner (admin).
+    match /meta/setup {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.owner == request.auth.uid;
+    }
+    // Changes whenever data changes, so phones can skip re-reading unchanged data.
+    match /meta/version {
+      allow read: if canRead();
+      allow write: if canAdd();
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (uid == request.auth.uid || isAdmin());
+      allow create: if signedIn() && uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && (request.resource.data.role == 'pending'
+            || (request.resource.data.role == 'admin'
+                && !exists(setupPath())
+                && getAfter(setupPath()).data.owner == uid));
+      // The owner's admin role can never be removed.
+      allow update: if isAdmin() && uid != get(setupPath()).data.owner
+        && changed().hasOnly(['role'])
+        && request.resource.data.role in ['admin', 'user', 'observer', 'pending'];
+    }
+
+    match /banks/{id} {
+      allow read: if canRead();
+      allow create: if isAdmin() && request.resource.data.name is string;
+      allow delete: if isAdmin() && resource.data.is_other != true;
+    }
+
+    match /checks/{id} {
+      allow read: if canRead();
+      allow create: if canAdd() && validMoney(request.resource.data)
+        && request.resource.data.paid_on == null
+        && request.resource.data.created_by == request.auth.uid;
+      // Admin edits anything. A user may only mark an unpaid check as paid.
+      allow update: if isAdmin()
+        || (canAdd() && resource.data.paid_on == null
+            && changed().hasOnly(['paid_on']) && request.resource.data.paid_on is string);
+      allow delete: if isAdmin();
+    }
+
+    match /loans/{id} {
+      allow read: if canRead();
+      allow create: if canAdd() && validMoney(request.resource.data)
+        && request.resource.data.remaining is int && request.resource.data.remaining >= 1
+        && request.resource.data.pay_seq == 0
+        && request.resource.data.created_by == request.auth.uid;
+      // Admin edits anything. A user may only record one installment as paid,
+      // which needs a matching payment record in the same save.
+      allow update: if isAdmin()
+        || (canAdd()
+            && changed().hasOnly(['remaining', 'due_date', 'pay_seq'])
+            && resource.data.remaining >= 1
+            && request.resource.data.remaining == resource.data.remaining - 1
+            && request.resource.data.pay_seq == resource.data.pay_seq + 1
+            && request.resource.data.due_date >= resource.data.due_date
+            && existsAfter(/databases/$(database)/documents/loan_payments/$(id + '_' + string(request.resource.data.pay_seq))));
+      allow delete: if isAdmin();
+    }
+
+    match /loan_payments/{id} {
+      allow read: if canRead();
+      allow create: if canAdd()
+        && id == request.resource.data.loan_id + '_' + string(getAfter(/databases/$(database)/documents/loans/$(request.resource.data.loan_id)).data.pay_seq)
+        && request.resource.data.amount == get(/databases/$(database)/documents/loans/$(request.resource.data.loan_id)).data.amount
+        && request.resource.data.due_date == get(/databases/$(database)/documents/loans/$(request.resource.data.loan_id)).data.due_date;
+      allow delete: if isAdmin();
+    }
+  }
+}

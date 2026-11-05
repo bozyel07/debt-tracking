@@ -1,0 +1,29 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.bozyel.debttracking'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.bozyel.debttracking'
+        minSdk 26
+        targetSdk 34
+        // Every GitHub build gets a higher number, so a new APK installs over the old one.
+        versionCode((System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger())
+        versionName '1.0.' + (System.getenv('GITHUB_RUN_NUMBER') ?: '0')
+    }
+    signingConfigs {
+        release {
+            storeFile file('debt-tracking.keystore')
+            storePassword 'debttracking'
+            keyAlias 'debttracking'
+            keyPassword 'debttracking'
+        }
+    }
+    buildTypes {
+        release { signingConfig signingConfigs.release; minifyEnabled false }
+    }
+    // The web app is packed inside the APK.
+    sourceSets { main { assets.srcDirs = ['../../web'] } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
