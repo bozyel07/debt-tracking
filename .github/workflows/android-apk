@@ -1,0 +1,27 @@
+name: Build Android APK
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', 'android/**', '.github/workflows/android-apk.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.14.3' }
+      - name: Build
+        working-directory: android
+        run: gradle assembleRelease --no-daemon
+      - name: Publish to the Latest APK release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk debt-tracking.apk
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest debt-tracking.apk --title "Latest APK" --notes "Build ${{ github.run_number }}. Download debt-tracking.apk on your Android phone."
