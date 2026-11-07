@@ -10,7 +10,9 @@
     addDays(s,n){const d=logic.parse(s);d.setDate(d.getDate()+n);return iso(d);},
     nextDue(s,day){const d=logic.parse(s);const y=d.getFullYear(),m=d.getMonth()+1;const last=new Date(y,m+1,0).getDate();return iso(new Date(y,m,Math.min(day,last)));},
     diff(a,b){return Math.round((logic.parse(a)-logic.parse(b))/864e5);},
-    installments(l){const out=[];let dt=l.due_date;for(let i=0;i<l.remaining;i++){out.push({date:dt,n:i+1,loan:l});dt=logic.nextDue(dt,l.pay_day||logic.parse(l.due_date).getDate());}return out;}
+    // A payment day on Saturday or Sunday is paid on the next Monday.
+    payDay(s){if(!s)return s;const w=logic.parse(s).getDay();return w===6?logic.addDays(s,2):w===0?logic.addDays(s,1):s;},
+    installments(l){const out=[];let dt=l.due_date;for(let i=0;i<l.remaining;i++){out.push({date:logic.payDay(dt),orig:dt,n:i+1,loan:l});dt=logic.nextDue(dt,l.pay_day||logic.parse(l.due_date).getDate());}return out;}
   };
   window.DT_LOGIC=logic;
   const uid=()=>'x'+Date.now().toString(36)+Math.random().toString(36).slice(2,9);

@@ -1,5 +1,5 @@
 window.DT_I18N = {
-en:{add:"Add",appName:"Debt Tracking",home:"Overview",checks:"Checks",loans:"Loans",paid:"Paid",reports:"Reports",settings:"Settings",
+en:{add:"Add",total:"Total",count:"Count",movedFrom:"Moved from {w} {d} (weekend)",appName:"Debt Tracking",home:"Overview",checks:"Checks",loans:"Loans",paid:"Paid",reports:"Reports",settings:"Settings",
 totalDebt:"Total debts",checkDebt:"Check debts",loanDebt:"Loan installment debts",noDebt:"No open debts",
 upcoming:"Next payments",dueSoonCount:"{n} payment(s) due within {d} days",overdueCount:"{n} overdue",
 addCheck:"Add check",addLoan:"Add loan installment",editCheck:"Edit check",editLoan:"Edit loan installment",
@@ -20,7 +20,7 @@ demoTitle:"Demo mode",demoText:"Sample data, saved on this device only. Pick a r
 saved:"Saved",deleted:"Deleted",movedPaid:"Moved to paid list",movedBack:"Moved back to payments",bankAdded:"Bank added",exported:"Excel file saved",
 errRequired:"Please fill in the marked fields.",errAmount:"Enter an amount greater than zero.",errRemaining:"Enter at least 1 remaining installment.",errLogin:"E-mail or password is wrong.",errNet:"No connection. Check your internet and try again.",errPerm:"Your role does not allow this.",errGeneric:"Something went wrong: {m}",errShort:"Password must be at least 6 characters.",errExists:"This e-mail already has an account.",confirmEmail:"Check your e-mail to confirm your account, then sign in.",
 sheetSummary:"Summary",sheetChecks:"Checks",sheetLoans:"Loans",sheetPaid:"Paid",sheetReport:"Report",period:"Period",kind:"Kind",addedBy:"Added by",errStale:"Someone just changed this record. It has been refreshed, please try again.",errQuota:"The daily free Firebase limit is used up. It resets tomorrow, or upgrade to the Blaze plan.",refresh:"Refresh",open:"Payments"},
-tr:{add:"Ekle",appName:"Debt Tracking",home:"Özet",checks:"Çekler",loans:"Krediler",paid:"Ödenenler",reports:"Raporlar",settings:"Ayarlar",
+tr:{add:"Ekle",total:"Toplam",count:"Adet",movedFrom:"{d} {w} gününden kaydırıldı (hafta sonu)",appName:"Debt Tracking",home:"Özet",checks:"Çekler",loans:"Krediler",paid:"Ödenenler",reports:"Raporlar",settings:"Ayarlar",
 totalDebt:"Toplam borçlar",checkDebt:"Çek borçları",loanDebt:"Kredi taksit borçları",noDebt:"Açık borç yok",
 upcoming:"Yaklaşan ödemeler",dueSoonCount:"{d} gün içinde {n} ödeme var",overdueCount:"{n} gecikmiş",
 addCheck:"Çek ekle",addLoan:"Kredi taksiti ekle",editCheck:"Çeki düzenle",editLoan:"Kredi taksitini düzenle",

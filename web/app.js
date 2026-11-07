@@ -15,8 +15,10 @@ const svg=p=>`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke
 const IC={home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',checks:'<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 11h7M6 14h4M17 14h1"/>',loans:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M8 14h3M14 14h2"/>',paid:'<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',reports:'<path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/>',gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',plus:'<path d="M12 5v14M5 12h14"/>',left:'<path d="M15 6l-6 6 6 6"/>',right:'<path d="M9 6l6 6-6 6"/>',x:'<path d="M6 6l12 12M18 6L6 18"/>',xl:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M9 13l5 5M14 13l-5 5"/>'};
 
 /* ---------- derived data ---------- */
-const openChecks=()=>st.data.checks.filter(c=>!c.paid_on).sort((a,b)=>a.due_date.localeCompare(b.due_date));
-const openLoans=()=>st.data.loans.filter(l=>l.remaining>0).sort((a,b)=>a.due_date.localeCompare(b.due_date));
+const pd=r=>L.payDay(r.due_date);
+const movedNote=r=>pd(r)!==r.due_date?t('movedFrom',{d:fdate(r.due_date),w:L.parse(r.due_date).toLocaleDateString(loc(),{weekday:'long'})}):'';
+const openChecks=()=>st.data.checks.filter(c=>!c.paid_on).sort((a,b)=>pd(a).localeCompare(pd(b)));
+const openLoans=()=>st.data.loans.filter(l=>l.remaining>0).sort((a,b)=>pd(a).localeCompare(pd(b)));
 function totals(){const r={};CUR.forEach(c=>r[c]={check:0,loan:0});openChecks().forEach(c=>r[c.currency].check+=+c.amount);openLoans().forEach(l=>r[l.currency].loan+=l.amount*l.remaining);return r;}
 const amounts=(o)=>{const a=CUR.filter(c=>Math.abs(o[c])>0.004).map(c=>money(o[c],c));return a;};
 const urgency=d=>{const n=L.diff(d,L.today());return{n,near:n<=st.warn,late:n<0};};
@@ -29,13 +31,13 @@ const checkTitle=c=>c.payee||c.check_no;
 const loanTitle=l=>t(l.loan_type==='other'?'other':l.loan_type);
 
 /* ---------- rendering ---------- */
-function rowCheck(c){const u=urgency(c.due_date),dt=L.parse(c.due_date);
-  return `<div class="row${u.near?' near':''}" data-row="check:${c.id}"><div class="cal is-check"><b>${dt.getDate()}</b><span>${esc(mon(c.due_date))}</span></div>
-  <div class="mid" data-act="open" data-k="check" data-id="${c.id}" role="button" tabindex="0"><strong>${esc(checkTitle(c))}</strong><small>${t('check')} ${esc(c.check_no)} · ${esc(bankName(c.bank))}</small><small class="when">${esc(whenText(c.due_date))}</small></div>
+function rowCheck(c){const u=urgency(pd(c)),dt=L.parse(pd(c)),mv=movedNote(c);
+  return `<div class="row${u.near?' near':''}" data-row="check:${c.id}"><div class="cal is-check"><b>${dt.getDate()}</b><span>${esc(mon(pd(c)))}</span></div>
+  <div class="mid" data-act="open" data-k="check" data-id="${c.id}" role="button" tabindex="0"><strong>${esc(checkTitle(c))}</strong><small>${t('check')} ${esc(c.check_no)} · ${esc(bankName(c.bank))}</small><small class="when">${esc(whenText(pd(c)))}</small>${mv?`<small>${esc(mv)}</small>`:''}</div>
   <div class="end"><span class="amt">${money(c.amount,c.currency)}</span>${can.pay()?`<button class="pay" data-act="pay" data-k="check" data-id="${c.id}">${t('payBtn')}</button>`:''}</div></div>`;}
-function rowLoan(l){const u=urgency(l.due_date),dt=L.parse(l.due_date);
-  return `<div class="row${u.near?' near':''}" data-row="loan:${l.id}"><div class="cal is-loan"><b>${dt.getDate()}</b><span>${esc(mon(l.due_date))}</span></div>
-  <div class="mid" data-act="open" data-k="loan" data-id="${l.id}" role="button" tabindex="0"><strong>${esc(loanTitle(l))}</strong><small>${esc(bankName(l.bank))} · ${t('installmentsLeft',{n:l.remaining})}</small><small class="when">${esc(whenText(l.due_date))}</small></div>
+function rowLoan(l){const u=urgency(pd(l)),dt=L.parse(pd(l)),mv=movedNote(l);
+  return `<div class="row${u.near?' near':''}" data-row="loan:${l.id}"><div class="cal is-loan"><b>${dt.getDate()}</b><span>${esc(mon(pd(l)))}</span></div>
+  <div class="mid" data-act="open" data-k="loan" data-id="${l.id}" role="button" tabindex="0"><strong>${esc(loanTitle(l))}</strong><small>${esc(bankName(l.bank))} · ${t('installmentsLeft',{n:l.remaining})}</small><small class="when">${esc(whenText(pd(l)))}</small>${mv?`<small>${esc(mv)}</small>`:''}</div>
   <div class="end"><span class="amt">${money(l.amount,l.currency)}</span>${can.pay()?`<button class="pay" data-act="pay" data-k="loan" data-id="${l.id}">${t('payBtn')}</button>`:''}</div></div>`;}
 function rowPaid(p){const dt=L.parse(p.paid_on),r=p.rec;
   return `<div class="row"><div class="cal ${p.kind==='check'?'is-check':'is-loan'}"><b>${dt.getDate()}</b><span>${esc(mon(p.paid_on))}</span></div>
@@ -44,13 +46,13 @@ function rowPaid(p){const dt=L.parse(p.paid_on),r=p.rec;
 const match=(o,extra)=>{const q=st.q.trim().toLocaleLowerCase('tr');if(!q)return true;return[o.check_no,o.payee,o.bank,o.given_bank,o.note,bankName(o.bank),extra].join(' ').toLocaleLowerCase('tr').includes(q);};
 function hero(){const T=totals();const tot={},chk={},ln={};CUR.forEach(c=>{tot[c]=T[c].check+T[c].loan;chk[c]=T[c].check;ln[c]=T[c].loan;});
   const a=amounts(tot),line=o=>amounts(o).join('<br>')||'—';
-  const dates=[...openChecks().map(c=>c.due_date),...openLoans().map(l=>l.due_date)];
+  const dates=[...openChecks().map(pd),...openLoans().map(pd)];
   const late=dates.filter(d=>urgency(d).late).length,soon=dates.filter(d=>{const u=urgency(d);return u.near&&!u.late;}).length;
   const al=[soon?t('dueSoonCount',{n:soon,d:st.warn}):'',late?t('overdueCount',{n:late}):''].filter(Boolean).join(' · ');
   return `<section class="hero" aria-label="${t('totalDebt')}"><div><h2>${t('totalDebt')}</h2><div class="big">${a.length?a.map(x=>`<b>${x}</b>`).join(''):`<b>${t('noDebt')}</b>`}</div></div>
   <div class="split"><div><h3>${t('checkDebt')}</h3><p>${line(chk)}</p></div><div><h3>${t('loanDebt')}</h3><p>${line(ln)}</p></div></div>${al?`<div class="alert">${esc(al)}</div>`:''}</section>`;}
 const addBtn=(k,l)=>can.add()?`<button class="fab" data-act="new" data-k="${k}">${svg(IC.plus)}${t(l)}</button>`:'';
-function vHome(){const it=[...openChecks().map(c=>({d:c.due_date,h:rowCheck(c)})),...openLoans().map(l=>({d:l.due_date,h:rowLoan(l)}))].sort((a,b)=>a.d.localeCompare(b.d));
+function vHome(){const it=[...openChecks().map(c=>({d:pd(c),h:rowCheck(c)})),...openLoans().map(l=>({d:pd(l),h:rowLoan(l)}))].sort((a,b)=>a.d.localeCompare(b.d));
   return hero()+(can.add()?`<div class="addrow">${addBtn('check','addCheck')}${addBtn('loan','addLoan')}</div>`:'')+`<div class="sec"><h2>${t('upcoming')}</h2></div>`+(it.length?`<div class="list">${it.slice(0,30).map(x=>x.h).join('')}</div>`:`<div class="list"><div class="empty">${t('emptyUp')}</div></div>`);}
 function sumLine(list,f){const o={};CUR.forEach(c=>o[c]=0);list.forEach(x=>o[x.currency]+=f(x));return amounts(o).join(' · ');}
 function vChecks(){const a=openChecks().filter(c=>match(c));
@@ -66,17 +68,21 @@ function range(){const{kind,at}=st.rep,d=L.parse(at);
   const lab=d.toLocaleDateString(loc(),{month:'long',year:'numeric'});return{from,to,label:lab.charAt(0).toLocaleUpperCase(loc())+lab.slice(1)};}
 function moveRep(n){const{kind,at}=st.rep,d=L.parse(at);st.rep.at=kind==='daily'?L.addDays(at,n):kind==='weekly'?L.addDays(at,7*n):L.iso(new Date(d.getFullYear(),d.getMonth()+n,1));}
 function repData(){const{from,to}=range(),inR=d=>d>=from&&d<=to;
-  const due=[...openChecks().filter(c=>inR(c.due_date)).map(c=>({kind:'check',date:c.due_date,amount:+c.amount,currency:c.currency,rec:c})),
-    ...openLoans().flatMap(l=>L.installments(l).filter(i=>inR(i.date)).map(i=>({kind:'loan',date:i.date,amount:+l.amount,currency:l.currency,rec:l})))].sort((a,b)=>a.date.localeCompare(b.date));
+  const due=[...openChecks().filter(c=>inR(pd(c))).map(c=>({kind:'check',date:pd(c),orig:c.due_date,amount:+c.amount,currency:c.currency,rec:c})),
+    ...openLoans().flatMap(l=>L.installments(l).filter(i=>inR(i.date)).map(i=>({kind:'loan',date:i.date,orig:i.orig,amount:+l.amount,currency:l.currency,rec:l})))].sort((a,b)=>a.date.localeCompare(b.date));
   const paid=paidList().filter(p=>inR(p.paid_on));return{due,paid};}
-const tile=(h,list)=>{const ch=list.filter(x=>x.kind==='check'),lo=list.filter(x=>x.kind==='loan');
-  return `<div class="tile"><h3>${h}</h3><p>${sumLine(list,x=>x.amount).replace(/ · /g,'<br>')||'—'}</p><div class="sub">${t('checks')}: ${ch.length} · ${t('loans')}: ${lo.length}</div></div>`;};
+function split(list){const z=()=>Object.fromEntries(CUR.map(c=>[c,0]));const o={check:z(),loan:z(),all:z(),n:{check:0,loan:0}};
+  list.forEach(x=>{o[x.kind][x.currency]+=x.amount;o.all[x.currency]+=x.amount;o.n[x.kind]++;});o.cur=CUR.filter(c=>Math.abs(o.all[c])>0.004);return o;}
+function breakdown(h,list){const o=split(list),cur=o.cur.length?o.cur:['TRY'];const cell=(v,c)=>v>0.004?money(v,c):'—';
+  const row=(lab,k,n,cls='')=>`<tr class="${cls}"><th scope="row">${lab}${n!=null?` <span>(${n})</span>`:''}</th>${cur.map(c=>`<td>${cell(o[k][c],c)}</td>`).join('')}</tr>`;
+  return `<section class="bd"><h3>${h}</h3><div class="bd-scroll"><table><thead><tr><th></th>${cur.map(c=>`<th>${c==='TRY'?'TL':c}</th>`).join('')}</tr></thead><tbody>
+  ${row(t('checks'),'check',o.n.check,'is-check')}${row(t('loans'),'loan',o.n.loan,'is-loan')}${row(t('total'),'all',null,'tot')}</tbody></table></div></section>`;}
 function vReports(){const r=range(),{due,paid}=repData();
-  const rowR=(x,paidRow)=>{const d=paidRow?x.paid_on:x.date,u=urgency(d),dt=L.parse(d),near=!paidRow&&u.near,r=x.rec;
-    return `<div class="row${near?' near':''}"><div class="cal ${x.kind==='check'?'is-check':'is-loan'}"><b>${dt.getDate()}</b><span>${esc(mon(d))}</span></div><div class="mid"><strong>${esc(x.kind==='check'?checkTitle(r):loanTitle(r))}</strong><small>${x.kind==='check'?t('check')+' '+esc(r.check_no):t('loan')} · ${esc(bankName(r.bank))}</small></div><div class="end"><span class="amt">${money(x.amount,x.currency)}</span></div></div>`;};
+  const rowR=(x,paidRow)=>{const d=paidRow?x.paid_on:x.date,u=urgency(d),dt=L.parse(d),near=!paidRow&&u.near,r=x.rec,mv=!paidRow&&x.orig&&x.orig!==x.date?t('movedFrom',{d:fdate(x.orig),w:L.parse(x.orig).toLocaleDateString(loc(),{weekday:'long'})}):'';
+    return `<div class="row${near?' near':''}"><div class="cal ${x.kind==='check'?'is-check':'is-loan'}"><b>${dt.getDate()}</b><span>${esc(mon(d))}</span></div><div class="mid"><strong>${esc(x.kind==='check'?checkTitle(r):loanTitle(r))}</strong><small>${x.kind==='check'?t('check')+' '+esc(r.check_no):t('loan')} · ${esc(bankName(r.bank))}</small>${mv?`<small>${esc(mv)}</small>`:''}</div><div class="end"><span class="amt">${money(x.amount,x.currency)}</span></div></div>`;};
   return `<div class="sec"><h2>${t('reports')}</h2></div><div class="seg" role="group">${['daily','weekly','monthly'].map(k=>`<button data-act="repkind" data-k="${k}" aria-pressed="${st.rep.kind===k}">${t(k)}</button>`).join('')}</div>
   <div class="nav"><button class="iconbtn" data-act="repmove" data-n="-1" aria-label="‹">${svg(IC.left)}</button><b>${esc(r.label)}</b><button class="iconbtn" data-act="repmove" data-n="1" aria-label="›">${svg(IC.right)}</button></div>
-  <div class="tiles">${tile(t('dueInPeriod'),due)}${tile(t('paidInPeriod'),paid)}</div>
+  ${breakdown(t('dueInPeriod'),due)}${breakdown(t('paidInPeriod'),paid)}
   <div class="sec"><h2>${t('dueInPeriod')}</h2></div>${due.length?`<div class="list">${due.map(x=>rowR(x,false)).join('')}</div>`:`<div class="list"><div class="empty">${t('emptyReport')}</div></div>`}
   <div class="sec"><h2>${t('paidInPeriod')}</h2></div>${paid.length?`<div class="list">${paid.map(x=>rowR(x,true)).join('')}</div>`:`<div class="list"><div class="empty">${t('emptyReport')}</div></div>`}
   <button class="btn block" data-act="xlreport">${t('exportReport')}</button>`;}
@@ -145,8 +151,8 @@ function read(fields,req){const v={};let bad=false;document.querySelectorAll('.b
   const a=parseAmount($('#amount').value);if(!(a>0)){$('#w-amount').classList.add('bad');ferr(t(bad?'errRequired':'errAmount'));return null;}
   if(bad){ferr(t('errRequired'));return null;}v.amount=a;v.currency=$('#cur').dataset.v;return v;}
 function detail(kind,id,paidEntry){const r=kind==='check'?st.data.checks.find(c=>c.id===id):st.data.loans.find(l=>l.id===id);if(!r)return;
-  const rows=kind==='check'?[[t('checkDay'),fdate(r.due_date)],[t('checkAmount'),money(r.amount,r.currency)],[t('checkNo'),r.check_no],[t('checkBank'),bankName(r.bank)],[t('payee'),r.payee],[t('givenBank'),bankName(r.given_bank)||'—'],[t('note'),r.note||'—']]
-   :[[t('loanDay'),fdate(r.due_date)],[t('loanAmount'),money(r.amount,r.currency)],[t('loanType'),loanTitle(r)],[t('remaining'),r.remaining],[t('totalRemaining'),money(r.amount*r.remaining,r.currency)],[t('payBank'),bankName(r.bank)],[t('note'),r.note||'—']];
+  const rows=kind==='check'?[[t('checkDay'),fdate(pd(r))+(movedNote(r)?' ('+movedNote(r)+')':'')],[t('checkAmount'),money(r.amount,r.currency)],[t('checkNo'),r.check_no],[t('checkBank'),bankName(r.bank)],[t('payee'),r.payee],[t('givenBank'),bankName(r.given_bank)||'—'],[t('note'),r.note||'—']]
+   :[[t('loanDay'),fdate(pd(r))+(movedNote(r)?' ('+movedNote(r)+')':'')],[t('loanAmount'),money(r.amount,r.currency)],[t('loanType'),loanTitle(r)],[t('remaining'),r.remaining],[t('totalRemaining'),money(r.amount*r.remaining,r.currency)],[t('payBank'),bankName(r.bank)],[t('note'),r.note||'—']];
   if(paidEntry)rows.unshift([t('paidOn'),fdate(paidEntry.paid_on)]);
   const isPaid=kind==='check'?!!r.paid_on:!!paidEntry;
   let b='';if(!isPaid&&can.pay())b+=`<button class="btn" data-act="pay" data-k="${kind}" data-id="${id}">${t('markPaid')}</button>`;
@@ -174,13 +180,15 @@ const cellD=(d,red)=>({v:d,date:true,s:red?6:3});const cellM=(n,red)=>({v:n,s:re
 const symN=c=>c==='TRY'?'TL':c;
 function sheetsAll(){const T=totals();
   const sum=[H([t('currency'),t('checkDebt'),t('loanDebt'),t('totalDebt')]),...CUR.map(c=>[symN(c),{v:T[c].check,s:2},{v:T[c].loan,s:2},{v:T[c].check+T[c].loan,s:8}])];
-  const ch=[H([t('checkDay'),t('checkAmount'),t('currency'),t('checkNo'),t('checkBank'),t('payee'),t('givenBank'),t('note')]),...openChecks().map(c=>{const r=urgency(c.due_date).near;return[cellD(c.due_date,r),cellM(+c.amount,r),symN(c.currency),c.check_no,bankName(c.bank),c.payee,bankName(c.given_bank),c.note];})];
-  const lo=[H([t('loanDay'),t('loanAmount'),t('currency'),t('loanType'),t('remaining'),t('totalRemaining'),t('payBank'),t('note')]),...openLoans().map(l=>{const r=urgency(l.due_date).near;return[cellD(l.due_date,r),cellM(+l.amount,r),symN(l.currency),loanTitle(l),{v:l.remaining,s:7},cellM(l.amount*l.remaining,r),bankName(l.bank),l.note];})];
+  const ch=[H([t('checkDay'),t('checkAmount'),t('currency'),t('checkNo'),t('checkBank'),t('payee'),t('givenBank'),t('note')]),...openChecks().map(c=>{const r=urgency(pd(c)).near;return[cellD(pd(c),r),cellM(+c.amount,r),symN(c.currency),c.check_no,bankName(c.bank),c.payee,bankName(c.given_bank),c.note];})];
+  const lo=[H([t('loanDay'),t('loanAmount'),t('currency'),t('loanType'),t('remaining'),t('totalRemaining'),t('payBank'),t('note')]),...openLoans().map(l=>{const r=urgency(pd(l)).near;return[cellD(pd(l),r),cellM(+l.amount,r),symN(l.currency),loanTitle(l),{v:l.remaining,s:7},cellM(l.amount*l.remaining,r),bankName(l.bank),l.note];})];
   const pa=[H([t('paidOn'),t('dueDate'),t('kind'),t('amount'),t('currency'),t('bank'),t('checkNo'),t('payee'),t('loanType'),t('note')]),...paidList().map(p=>{const r=p.rec;return[cellD(p.paid_on),cellD(p.due_date),p.kind==='check'?t('check'):t('loan'),cellM(p.amount),symN(p.currency),bankName(r.bank),r.check_no||'',r.payee||'',p.kind==='loan'?loanTitle(r):'',r.note];})];
   return[{name:t('sheetSummary'),rows:sum,widths:[12,20,24,20],freeze:1},{name:t('sheetChecks'),rows:ch,widths:[14,16,8,14,18,26,18,30],freeze:1},{name:t('sheetLoans'),rows:lo,widths:[14,16,8,18,12,18,18,30],freeze:1},{name:t('sheetPaid'),rows:pa,widths:[13,13,16,16,8,18,14,26,18,30],freeze:1}];}
-function sheetsReport(){const r=range(),{due,paid}=repData();const head=d=>[t(d),t('kind'),t('amount'),t('currency'),t('bank'),t('checkNo'),t('payee'),t('loanType')];
+function sheetsReport(){const r=range(),{due,paid}=repData();
+  const sumRows=(h,list)=>{const o=split(list);return[[{v:h,s:7}],H([t('kind'),t('count'),...CUR.map(symN)]),[t('checks'),o.n.check,...CUR.map(c=>({v:o.check[c],s:2}))],[t('loans'),o.n.loan,...CUR.map(c=>({v:o.loan[c],s:2}))],[{v:t('total'),s:7},o.n.check+o.n.loan,...CUR.map(c=>({v:o.all[c],s:8}))],[]];};
+  const summary={name:t('sheetSummary'),rows:[[{v:t('period')+': '+r.label,s:7}],[],...sumRows(t('dueInPeriod'),due),...sumRows(t('paidInPeriod'),paid)],widths:[22,10,18,18,18]};const head=d=>[t(d),t('kind'),t('amount'),t('currency'),t('bank'),t('checkNo'),t('payee'),t('loanType')];
   const line=(x,d)=>{const q=x.rec;return[cellD(d),x.kind==='check'?t('check'):t('loan'),cellM(x.amount),symN(x.currency),bankName(q.bank),q.check_no||'',q.payee||'',x.kind==='loan'?loanTitle(q):''];};
-  return[{name:t('dueInPeriod'),rows:[[{v:t('period')+': '+r.label,s:7}],H(head('dueDate')),...due.map(x=>line(x,x.date))],widths:[14,16,16,8,18,14,26,18],freeze:2},{name:t('paidInPeriod'),rows:[[{v:t('period')+': '+r.label,s:7}],H(head('paidOn')),...paid.map(x=>line(x,x.paid_on))],widths:[14,16,16,8,18,14,26,18],freeze:2}];}
+  return[summary,{name:t('dueInPeriod'),rows:[[{v:t('period')+': '+r.label,s:7}],H(head('dueDate')),...due.map(x=>line(x,x.date))],widths:[14,16,16,8,18,14,26,18],freeze:2},{name:t('paidInPeriod'),rows:[[{v:t('period')+': '+r.label,s:7}],H(head('paidOn')),...paid.map(x=>line(x,x.paid_on))],widths:[14,16,16,8,18,14,26,18],freeze:2}];}
 async function saveXlsx(sheets,name){if(window.DT_PREVIEW){toast(st.lang==='tr'?'Excel, bu önizlemede değil, kurulu uygulamada çalışır.':'Excel export works in the installed app, not in this preview.');return;}const blob=DT_XLSX.build(sheets);window.DT_LAST_XLSX=blob;
   if(window.DebtAndroid){const b=new Uint8Array(await blob.arrayBuffer());let s='';for(let i=0;i<b.length;i+=8192)s+=String.fromCharCode.apply(null,b.subarray(i,i+8192));window.DebtAndroid.saveFile(name,btoa(s));toast(t('exported'));return;}
   const ios=/iP(hone|ad|od)/.test(navigator.userAgent);const f=typeof File==='function'?new File([blob],name,{type:blob.type}):null;

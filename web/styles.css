@@ -102,3 +102,14 @@ dl.det dt{color:var(--muted);font-size:13px}dl.det dd{margin:0;font-weight:600;t
 #toast{position:fixed;z-index:60;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 15px;border-radius:12px;font-weight:600;font-size:14px;max-width:88vw;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.on{opacity:1}
 @media (prefers-reduced-motion:reduce){#toast{transition:none}}
+.bd{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px;box-shadow:var(--shadow)}
+.bd h3{margin:0 0 8px;font-size:14px}
+.bd-scroll{overflow-x:auto}
+.bd table{width:100%;border-collapse:collapse;font-size:13.5px}
+.bd th,.bd td{padding:7px 6px;text-align:right;white-space:nowrap;border-top:1px solid var(--line)}
+.bd thead th{border-top:0;color:var(--muted);font-size:12px;font-weight:600}
+.bd th[scope=row]{text-align:left;font-weight:600}
+.bd th[scope=row] span{color:var(--muted);font-weight:500}
+.bd tr.is-check th[scope=row]{box-shadow:inset 3px 0 0 var(--check);padding-left:9px}
+.bd tr.is-loan th[scope=row]{box-shadow:inset 3px 0 0 var(--loan);padding-left:9px}
+.bd tr.tot th,.bd tr.tot td{font-weight:800}
