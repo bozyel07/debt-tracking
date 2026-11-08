@@ -22,10 +22,10 @@
     const t=logic.today(),a=n=>logic.addDays(t,n);
     const c=(d,amt,cur,no,bank,payee,gb,note,paid)=>({id:uid(),due_date:a(d),amount:amt,currency:cur,check_no:no,bank,payee,given_bank:gb,note,paid_on:paid==null?null:a(paid),created_at:new Date().toISOString()});
     const l=(d,amt,cur,ty,rem,bank,note)=>({id:uid(),due_date:a(d),amount:amt,currency:cur,loan_type:ty,remaining:rem,bank,note,pay_day:logic.parse(a(d)).getDate(),pay_seq:0,created_at:new Date().toISOString()});
-    const loans=[l(3,48500,'TRY','vehicle',14,'Garanti','Örnek: çekici kredisi'),l(12,2150,'USD','machine',9,'Akbank','Sample: excavator'),l(21,126000,'TRY','commercial',6,'İş Bankası',''),l(26,1800,'EUR','vehicle',4,'QNB','')];
+    const loans=[{...l(18,42750,'TRY','vat',10,'Sample Vergi Dairesi','Örnek: KDV yapılandırma'),section:'tax'},l(3,48500,'TRY','vehicle',14,'Garanti','Örnek: çekici kredisi'),l(12,2150,'USD','machine',9,'Akbank','Sample: excavator'),l(21,126000,'TRY','commercial',6,'İş Bankası',''),l(26,1800,'EUR','vehicle',4,'QNB','')];
     return{banks:[...DEFAULT_BANKS.map((n,i)=>({id:'b'+i,name:n,is_other:false,sort:(i+1)*10})),{id:'bo',name:'Others',is_other:true,sort:9999}],
       checks:[c(-1,18000,'TRY','0048213','Akbank','Yılmaz Nakliyat','Ziraat Bank','Örnek kayıt'),c(2,65000,'TRY','0048214','Akbank','Demir Lastik','Garanti','Lastik alımı'),c(6,4200,'USD','7731902','Yapı Kredi','Kaya Otomotiv','TEB',''),c(16,92500,'TRY','1120456','Halkbank','Özkan Petrol','QNB','Yakıt'),c(33,3100,'EUR','5510377','Denizbank','Arslan Yedek Parça','Akbank',''),c(-20,27500,'TRY','0048190','Akbank','Çelik Tamir','Halkbank','',-20)],
-      loans,payments:[{id:uid(),loan_id:loans[0].id,due_date:a(-27),paid_on:a(-27),amount:48500}],users:[]};
+      loans,payments:[{id:uid(),loan_id:loans[1].id,due_date:a(-27),paid_on:a(-27),amount:48500}],users:[]};
   }
 
   class DemoApi{

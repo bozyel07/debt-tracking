@@ -1,9 +1,9 @@
 /* Layout: phone-first single column under a petrol header card, tab bar fixed to the bottom. Red is kept for near and late payments only. */
 :root{--bg:#EDF2F4;--surface:#FFFFFF;--line:#D8E2E7;--ink:#0E2A38;--muted:#587080;--brand:#134A63;--brand-2:#0A2433;--on-brand:#F7F3E8;--on-brand-2:#B8CDD6;--gold:#EFA92F;
---check:#1B7A9A;--loan:#A86E08;--danger:#D21F2B;--good:#14795A;--chip:#E3ECF0;--shadow:0 1px 2px rgba(14,42,56,.08);
+--check:#1B7A9A;--loan:#A86E08;--tax:#6A4C9C;--danger:#D21F2B;--good:#14795A;--chip:#E3ECF0;--shadow:0 1px 2px rgba(14,42,56,.08);
 --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color-scheme:light}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0B1A22;--surface:#12262F;--line:#23404D;--ink:#E8F0F3;--muted:#93ACB8;--brand:#17506B;--brand-2:#0E3243;--chip:#1C3744;--check:#58B9DA;--loan:#EDB24A;--danger:#FF6B70;--good:#4CCB9E;--shadow:none;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#0B1A22;--surface:#12262F;--line:#23404D;--ink:#E8F0F3;--muted:#93ACB8;--brand:#17506B;--brand-2:#0E3243;--chip:#1C3744;--check:#58B9DA;--loan:#EDB24A;--danger:#FF6B70;--good:#4CCB9E;--shadow:none;color-scheme:dark}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0B1A22;--surface:#12262F;--line:#23404D;--ink:#E8F0F3;--muted:#93ACB8;--brand:#17506B;--brand-2:#0E3243;--chip:#1C3744;--check:#58B9DA;--loan:#EDB24A;--tax:#B79CE8;--danger:#FF6B70;--good:#4CCB9E;--shadow:none;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0B1A22;--surface:#12262F;--line:#23404D;--ink:#E8F0F3;--muted:#93ACB8;--brand:#17506B;--brand-2:#0E3243;--chip:#1C3744;--check:#58B9DA;--loan:#EDB24A;--tax:#B79CE8;--danger:#FF6B70;--good:#4CCB9E;--shadow:none;color-scheme:dark}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{height:100%;-webkit-text-size-adjust:100%}
 body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:15px/1.4 var(--font);font-variant-numeric:tabular-nums}
@@ -23,10 +23,10 @@ button{cursor:pointer;border:0;background:none}
 .hero .big{display:flex;flex-direction:column;gap:2px}
 .hero .big b{font-size:30px;line-height:1.15;font-weight:700;letter-spacing:-.02em;overflow-wrap:anywhere}
 .hero .big b:not(:first-child){font-size:20px;font-weight:600}
-.split{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.split>div{background:rgba(255,255,255,.08);border-radius:14px;padding:10px 12px;min-width:0}
-.split h3{margin:0 0 3px;font-size:12px;font-weight:600;color:var(--on-brand-2)}
-.split p{margin:0;font-weight:600;font-size:15px;overflow-wrap:anywhere}
+.split{display:flex;flex-direction:column;gap:6px}
+.split>div{background:rgba(255,255,255,.08);border-radius:12px;padding:9px 12px;min-width:0;display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.split h3{margin:0;font-size:12px;font-weight:600;color:var(--on-brand-2)}
+.split p{margin:0;font-weight:600;font-size:15px;text-align:right;white-space:nowrap}
 .alert{font-size:13px;font-weight:700;background:var(--surface);color:var(--danger);border-radius:10px;padding:7px 11px}
 .sec{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .sec h2{margin:0;font-size:16px}
@@ -54,9 +54,9 @@ button{cursor:pointer;border:0;background:none}
 .btn.block{width:100%}
 .btn.small{min-height:36px;font-size:13px;padding:0 12px;border-radius:10px}
 .fab{display:flex;align-items:center;justify-content:center;gap:6px;min-height:46px;padding:0 12px;border-radius:13px;background:var(--gold);color:#3A2600;font-weight:800;font-size:14px;width:100%}
-.addrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.addrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .tabs{position:fixed;z-index:15;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-inline:env(safe-area-inset-left,0px) env(safe-area-inset-right,0px)}
-.tabs div{max-width:720px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+.tabs div{max-width:720px;margin:0 auto;display:grid;grid-template-columns:repeat(6,1fr)}
 .tabs button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 7px;color:var(--muted);font-size:11px;font-weight:600;min-width:0}
 .tabs button[aria-current="page"]{color:var(--brand)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tabs button[aria-current="page"]{color:var(--gold)}}
@@ -105,11 +105,14 @@ dl.det dt{color:var(--muted);font-size:13px}dl.det dd{margin:0;font-weight:600;t
 .bd{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px;box-shadow:var(--shadow)}
 .bd h3{margin:0 0 8px;font-size:14px}
 .bd-scroll{overflow-x:auto}
-.bd table{width:100%;border-collapse:collapse;font-size:13.5px}
-.bd th,.bd td{padding:7px 6px;text-align:right;white-space:nowrap;border-top:1px solid var(--line)}
+.bd table{width:100%;border-collapse:collapse;font-size:13px}
+.bd th,.bd td{padding:7px 4px;text-align:right;white-space:nowrap;border-top:1px solid var(--line)}
 .bd thead th{border-top:0;color:var(--muted);font-size:12px;font-weight:600}
 .bd th[scope=row]{text-align:left;font-weight:600}
 .bd th[scope=row] span{color:var(--muted);font-weight:500}
 .bd tr.is-check th[scope=row]{box-shadow:inset 3px 0 0 var(--check);padding-left:9px}
 .bd tr.is-loan th[scope=row]{box-shadow:inset 3px 0 0 var(--loan);padding-left:9px}
 .bd tr.tot th,.bd tr.tot td{font-weight:800}
+.cal.is-tax{box-shadow:inset 0 -3px 0 var(--tax)}
+.bd tr.is-tax th[scope=row]{box-shadow:inset 3px 0 0 var(--tax);padding-left:9px}
+.tabs button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
