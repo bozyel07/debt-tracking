@@ -116,3 +116,5 @@ dl.det dt{color:var(--muted);font-size:13px}dl.det dd{margin:0;font-weight:600;t
 .cal.is-tax{box-shadow:inset 0 -3px 0 var(--tax)}
 .bd tr.is-tax th[scope=row]{box-shadow:inset 3px 0 0 var(--tax);padding-left:9px}
 .tabs button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.mid small.delay{color:var(--loan);font-weight:600}
+.near .mid small.delay{color:var(--danger)}

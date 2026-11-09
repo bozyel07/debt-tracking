@@ -34,9 +34,11 @@ const checkTitle=c=>c.payee||c.check_no;
 const loanTitle=l=>l.section==='tax'?t('tx_'+l.loan_type):t(l.loan_type==='other'?'other':l.loan_type);
 
 /* ---------- rendering ---------- */
-function rowCheck(c){const u=urgency(pd(c)),dt=L.parse(pd(c)),mv=movedNote(c);
+const delays=c=>{try{return JSON.parse(c.delay_log||'[]')}catch(e){return[]}};
+const delayNote=c=>{const d=delays(c);return d.length?t('delayedNote',{n:d.length,d:fdate(c.original_date||d[0].from)}):'';};
+function rowCheck(c){const u=urgency(pd(c)),dt=L.parse(pd(c)),mv=movedNote(c),dn=delayNote(c);
   return `<div class="row${u.near?' near':''}" data-row="check:${c.id}"><div class="cal is-check"><b>${dt.getDate()}</b><span>${esc(mon(pd(c)))}</span></div>
-  <div class="mid" data-act="open" data-k="check" data-id="${c.id}" role="button" tabindex="0"><strong>${esc(checkTitle(c))}</strong><small>${t('check')} ${esc(c.check_no)} · ${esc(bankName(c.bank))}</small><small class="when">${esc(whenText(pd(c)))}</small>${mv?`<small>${esc(mv)}</small>`:''}</div>
+  <div class="mid" data-act="open" data-k="check" data-id="${c.id}" role="button" tabindex="0"><strong>${esc(checkTitle(c))}</strong><small>${t('check')} ${esc(c.check_no)} · ${esc(bankName(c.bank))}</small><small class="when">${esc(whenText(pd(c)))}</small>${mv?`<small>${esc(mv)}</small>`:''}${dn?`<small class="delay">${esc(dn)}</small>`:''}</div>
   <div class="end"><span class="amt">${money(c.amount,c.currency)}</span>${can.pay()?`<button class="pay" data-act="pay" data-k="check" data-id="${c.id}">${t('payBtn')}</button>`:''}</div></div>`;}
 function rowLoan(l){const u=urgency(pd(l)),dt=L.parse(pd(l)),mv=movedNote(l);
   return `<div class="row${u.near?' near':''}" data-row="loan:${l.id}"><div class="cal is-${kindOf(l)}"><b>${dt.getDate()}</b><span>${esc(mon(pd(l)))}</span></div>
@@ -156,12 +158,26 @@ function read(fields,req){const v={};let bad=false;document.querySelectorAll('.b
   for(const f of fields){v[f]=$('#'+f).value.trim();if(req.includes(f)&&!v[f]){$('#w-'+f).classList.add('bad');bad=true;}}
   const a=parseAmount($('#amount').value);if(!(a>0)){$('#w-amount').classList.add('bad');ferr(t(bad?'errRequired':'errAmount'));return null;}
   if(bad){ferr(t('errRequired'));return null;}v.amount=a;v.currency=$('#cur').dataset.v;return v;}
+function delayForm(c){const cur=c.due_date;
+  sheet(head(t('delayCheck'))+`<dl class="det"><dt>${esc(checkTitle(c))}</dt><dd>${money(c.amount,c.currency)}</dd><dt>${t('currentDay')}</dt><dd>${fdate(cur)}</dd>${delays(c).length?`<dt>${t('originalDay')}</dt><dd>${fdate(c.original_date||delays(c)[0].from)}</dd>`:''}</dl>
+  <form id="dfrm" novalidate class="sheet" style="padding:0;max-height:none;overflow:visible;border-radius:0">
+  <div class="seg" role="group" aria-label="${t('delayBy')}">${[7,15,30,60].map(n=>`<button type="button" data-act="dplus" data-n="${n}" aria-pressed="false">+${n} ${t('days')}</button>`).join('')}</div>
+  ${fld('new_date',t('newDay')+' *',`<input id="new_date" type="date" min="${L.addDays(cur,1)}" value="">`)}
+  <p class="hint" id="dhint"></p>
+  ${fld('dnote',t('delayReason'),`<textarea id="dnote" rows="2"></textarea>`)}
+  <p class="err" id="ferr" hidden></p><button class="btn block" type="submit">${t('saveDelay')}</button></form>`);
+  const hint=()=>{const v=$('#new_date').value;$('#dhint').textContent=v?t('delayHint',{n:L.diff(v,cur),d:fdate(L.payDay(v))}):'';document.querySelectorAll('[data-act=dplus]').forEach(b=>b.setAttribute('aria-pressed',v===L.addDays(cur,+b.dataset.n)));};
+  $('#new_date').oninput=hint;$('#dfrm').addEventListener('click',e=>{const b=e.target.closest('[data-act=dplus]');if(!b)return;e.stopPropagation();$('#new_date').value=L.addDays(cur,+b.dataset.n);$('#w-new_date').classList.remove('bad');$('#ferr').hidden=true;hint();});
+  $('#dfrm').onsubmit=e=>{e.preventDefault();const v=$('#new_date').value;if(!v||v<=cur){$('#w-new_date').classList.add('bad');return ferr(t('errDelay'));}
+    const log=[...delays(c),{from:cur,to:v,on:L.today(),note:$('#dnote').value.trim()}];
+    run(()=>api.updateCheck(c.id,{due_date:v,original_date:c.original_date||cur,delay_log:JSON.stringify(log)}),t('delaySaved'));};}
 function detail(kind,id,paidEntry){const r=kind==='check'?st.data.checks.find(c=>c.id===id):st.data.loans.find(l=>l.id===id);if(!r)return;
-  const rows=kind==='check'?[[t('checkDay'),fdate(pd(r))+(movedNote(r)?' ('+movedNote(r)+')':'')],[t('checkAmount'),money(r.amount,r.currency)],[t('checkNo'),r.check_no],[t('checkBank'),bankName(r.bank)],[t('payee'),r.payee],[t('givenBank'),bankName(r.given_bank)||'—'],[t('note'),r.note||'—']]
+  const rows=kind==='check'?[[t('checkDay'),fdate(pd(r))+(movedNote(r)?' ('+movedNote(r)+')':'')],[t('checkAmount'),money(r.amount,r.currency)],[t('checkNo'),r.check_no],[t('checkBank'),bankName(r.bank)],[t('payee'),r.payee],[t('givenBank'),bankName(r.given_bank)||'—'],[t('note'),r.note||'—'],...(delays(r).length?[[t('originalDay'),fdate(r.original_date||delays(r)[0].from)],...delays(r).map((x,i)=>[t('delayN',{n:i+1}),`${fdate(x.from)} → ${fdate(x.to)}${x.note?' · '+x.note:''} (${fdate(x.on)})`])]:[])]
    :(()=>{const tx=kindOf(r)==='tax';return[[t(tx?'taxDay':'loanDay'),fdate(pd(r))+(movedNote(r)?' ('+movedNote(r)+')':'')],[t(tx?'taxAmount':'loanAmount'),money(r.amount,r.currency)],[t(tx?'taxType':'loanType'),loanTitle(r)],[t('remaining'),r.remaining],[t('totalRemaining'),money(r.amount*r.remaining,r.currency)],[t(tx?'taxOffice':'payBank'),bankName(r.bank)],[t('note'),r.note||'—']];})();
   if(paidEntry)rows.unshift([t('paidOn'),fdate(paidEntry.paid_on)]);
   const isPaid=kind==='check'?!!r.paid_on:!!paidEntry;
   let b='';if(!isPaid&&can.pay())b+=`<button class="btn" data-act="pay" data-k="${kind}" data-id="${id}">${t('markPaid')}</button>`;
+  if(!isPaid&&kind==='check'&&can.edit())b+=`<button class="btn ghost" data-act="delay" data-id="${id}">${t('delayCheck')}</button>`;
   if(can.edit()){if(isPaid)b+=`<button class="btn ghost" data-act="undo" data-k="${kind}" data-id="${paidEntry?paidEntry.id:id}">${t('undoPaid')}</button>`;
     b+=`<button class="btn ghost" data-act="edit" data-k="${kind}" data-id="${id}">${t('edit')}</button><button class="btn danger" data-act="del" data-k="${kind}" data-id="${id}">${t('delete')}</button>`;}
   sheet(head(kind==='check'?checkTitle(r):loanTitle(r))+`<dl class="det">${rows.map(([a,c])=>`<dt>${esc(a)}</dt><dd>${esc(c)}</dd>`).join('')}</dl>${b?`<div class="actions">${b}</div>`:''}`);}
@@ -186,11 +202,11 @@ const cellD=(d,red)=>({v:d,date:true,s:red?6:3});const cellM=(n,red)=>({v:n,s:re
 const symN=c=>c==='TRY'?'TL':c;
 function sheetsAll(){const T=totals();
   const sum=[H([t('currency'),t('checkDebt'),t('loanDebt'),t('taxDebt'),t('totalDebt')]),...CUR.map(c=>[symN(c),{v:T[c].check,s:2},{v:T[c].loan,s:2},{v:T[c].tax,s:2},{v:T[c].check+T[c].loan+T[c].tax,s:8}])];
-  const ch=[H([t('checkDay'),t('checkAmount'),t('currency'),t('checkNo'),t('checkBank'),t('payee'),t('givenBank'),t('note')]),...openChecks().map(c=>{const r=urgency(pd(c)).near;return[cellD(pd(c),r),cellM(+c.amount,r),symN(c.currency),c.check_no,bankName(c.bank),c.payee,bankName(c.given_bank),c.note];})];
+  const ch=[H([t('checkDay'),t('checkAmount'),t('currency'),t('checkNo'),t('checkBank'),t('payee'),t('givenBank'),t('note'),t('originalDay'),t('delays')]),...openChecks().map(c=>{const r=urgency(pd(c)).near;return[cellD(pd(c),r),cellM(+c.amount,r),symN(c.currency),c.check_no,bankName(c.bank),c.payee,bankName(c.given_bank),c.note,delays(c).length?cellD(c.original_date||delays(c)[0].from):'',delays(c).length||''];})];
   const lo=[H([t('loanDay'),t('loanAmount'),t('currency'),t('loanType'),t('remaining'),t('totalRemaining'),t('payBank'),t('note')]),...openLoans().map(l=>{const r=urgency(pd(l)).near;return[cellD(pd(l),r),cellM(+l.amount,r),symN(l.currency),loanTitle(l),{v:l.remaining,s:7},cellM(l.amount*l.remaining,r),bankName(l.bank),l.note];})];
   const tx=[H([t('taxDay'),t('taxAmount'),t('currency'),t('taxType'),t('remaining'),t('totalRemaining'),t('taxOffice'),t('note')]),...openTaxes().map(l=>{const r=urgency(pd(l)).near;return[cellD(pd(l),r),cellM(+l.amount,r),symN(l.currency),loanTitle(l),{v:l.remaining,s:7},cellM(l.amount*l.remaining,r),l.bank,l.note];})];
   const pa=[H([t('paidOn'),t('dueDate'),t('kind'),t('amount'),t('currency'),t('bank'),t('checkNo'),t('payee'),t('loanType'),t('note')]),...paidList().map(p=>{const r=p.rec;return[cellD(p.paid_on),cellD(p.due_date),t(p.kind),cellM(p.amount),symN(p.currency),bankName(r.bank),r.check_no||'',r.payee||'',p.kind!=='check'?loanTitle(r):'',r.note];})];
-  return[{name:t('sheetSummary'),rows:sum,widths:[12,20,24,26,20],freeze:1},{name:t('sheetChecks'),rows:ch,widths:[14,16,8,14,18,26,18,30],freeze:1},{name:t('sheetLoans'),rows:lo,widths:[14,16,8,18,12,18,18,30],freeze:1},{name:t('taxes'),rows:tx,widths:[14,16,8,22,12,18,22,30],freeze:1},{name:t('sheetPaid'),rows:pa,widths:[13,13,16,16,8,18,14,26,18,30],freeze:1}];}
+  return[{name:t('sheetSummary'),rows:sum,widths:[12,20,24,26,20],freeze:1},{name:t('sheetChecks'),rows:ch,widths:[14,16,8,14,18,26,18,30,14,9],freeze:1},{name:t('sheetLoans'),rows:lo,widths:[14,16,8,18,12,18,18,30],freeze:1},{name:t('taxes'),rows:tx,widths:[14,16,8,22,12,18,22,30],freeze:1},{name:t('sheetPaid'),rows:pa,widths:[13,13,16,16,8,18,14,26,18,30],freeze:1}];}
 function sheetsReport(){const r=range(),{due,paid}=repData();
   const sumRows=(h,list)=>{const o=split(list);return[[{v:h,s:7}],H([t('kind'),t('count'),...CUR.map(symN)]),[t('checks'),o.n.check,...CUR.map(c=>({v:o.check[c],s:2}))],[t('loans'),o.n.loan,...CUR.map(c=>({v:o.loan[c],s:2}))],[t('taxes'),o.n.tax,...CUR.map(c=>({v:o.tax[c],s:2}))],[{v:t('total'),s:7},o.n.check+o.n.loan+o.n.tax,...CUR.map(c=>({v:o.all[c],s:8}))],[]];};
   const summary={name:t('sheetSummary'),rows:[[{v:t('period')+': '+r.label,s:7}],[],...sumRows(t('dueInPeriod'),due),...sumRows(t('paidInPeriod'),paid)],widths:[22,10,18,18,18]};const head=d=>[t(d),t('kind'),t('amount'),t('currency'),t('bank'),t('checkNo'),t('payee'),t('loanType')];
@@ -217,6 +233,8 @@ document.addEventListener('click',async ev=>{const el=ev.target.closest('[data-a
    openpaid(){const p=paidList().find(x=>x.kind===k&&x.id===id);if(p)detail(k,p.rec.id,p);},
    pay(){confirmSheet(t(k==='check'?'confirmPayCheck':'confirmPayLoan'),()=>run(()=>k==='check'?api.payCheck(id):api.payLoan(id,st.data.loans.find(l=>l.id===id)),t('movedPaid')));},
    undo(){confirmSheet(t('confirmUndo'),()=>run(()=>{if(k==='check')return api.undoCheck(id);const p=st.data.payments.find(x=>x.id===id);return api.undoLoanPayment(id,p,st.data.loans.find(l=>l.id===p.loan_id));},t('movedBack')));},
+   delay(){delayForm(st.data.checks.find(c=>c.id===id));},
+   dplus(){},
    edit(){k==='check'?checkForm(st.data.checks.find(c=>c.id===id)):loanForm(st.data.loans.find(c=>c.id===id));},
    del(){confirmSheet(t(k==='check'?'confirmDelete':'confirmDeleteLoan'),()=>run(()=>k==='check'?api.deleteCheck(id):api.deleteLoan(id,st.data.payments.filter(p=>p.loan_id===id).map(p=>p.id)),t('deleted')),true);},
    async delbank(){try{await api.deleteBank(id);await refresh();settings();}catch(x){toast(errMsg(x));}},
