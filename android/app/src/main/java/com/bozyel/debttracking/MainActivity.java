@@ -43,6 +43,19 @@ public class MainActivity extends Activity {
         web.saveState(out);
     }
 
+    // Tell the web app when it is left and reopened, so the PIN lock can ask again.
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (web != null) web.evaluateJavascript("window.dtHidden&&window.dtHidden()", null);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (web != null) web.evaluateJavascript("window.dtShown&&window.dtShown()", null);
+    }
+
     @Override
     public void onBackPressed() {
         web.evaluateJavascript("window.dtBack?window.dtBack():false", value -> {
