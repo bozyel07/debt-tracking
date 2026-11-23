@@ -106,7 +106,44 @@ function renderAuth(){const demo=api.demo;
   `<form id="authf" class="card" style="padding:0;gap:10px"><label class="f">${t('email')}<input id="au-email" type="email" autocomplete="username" required></label><label class="f">${t('password')}<input id="au-pass" type="password" autocomplete="${st.authMode==='login'?'current-password':'new-password'}" minlength="6" required></label>${st.msg?`<p class="err">${esc(st.msg)}</p>`:''}<button class="btn block" type="submit">${t(st.authMode==='login'?'login':'signup')}</button></form><button class="link" data-act="authswap">${t(st.authMode==='login'?'toSignup':'toLogin')}</button>${st.authMode==='signup'?`<p class="hint">${t('loginHint')}</p>`:''}`}
   <button class="link" data-act="lang">${st.lang==='tr'?'English':'Türkçe'}</button></div></div>`;document.documentElement.lang=st.lang;}
 function renderPending(){$('#app').innerHTML=`<div class="auth"><div class="card"><img src="${ICON}" alt=""><h1>${t('pendingTitle')}</h1><p>${t('pendingText')}</p><p>${esc(st.me.email)}</p><button class="btn block" data-act="recheck">${t('checkAgain')}</button><button class="link" data-act="signout">${t('signOut')}</button></div></div>`;}
-function render(){if(!st.me)return renderAuth();if(st.me.role==='pending')return renderPending();if(st.data)renderApp();}
+/* ---------- PIN lock (kept on this device only) ---------- */
+const PIN={key:()=>'dt_pin_'+(st.me&&st.me.id),get(){try{return st.me?JSON.parse(S.get(this.key())||'null'):null}catch(e){return null}},set(v){v?S.set(this.key(),JSON.stringify(v)):S.del(this.key())}};
+async function hashPin(salt,pin){const d=new TextEncoder().encode(salt+':'+pin);
+  if(window.crypto&&crypto.subtle){try{const h=await crypto.subtle.digest('SHA-256',d);return[...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join('');}catch(e){}}
+  let h=2166136261;for(const b of d){h^=b;h=Math.imul(h,16777619)>>>0;}return 'f'+h.toString(16);}
+const newSalt=()=>Array.from((window.crypto&&crypto.getRandomValues)?crypto.getRandomValues(new Uint8Array(12)):[...Array(12)].map(()=>Math.random()*256|0),b=>b.toString(16).padStart(2,'0')).join('');
+let padState=null;
+function pad(o){padState={...o,entered:''};let r=$('#pinroot');if(!r){r=document.createElement('div');r.id='pinroot';document.body.appendChild(r);}
+  const keys=[1,2,3,4,5,6,7,8,9].map(n=>`<button type="button" data-pin="${n}">${n}</button>`).join('')+
+    (o.forgot?`<button type="button" class="txt" data-pin="forgot">${t('forgotPin')}</button>`:o.cancel?`<button type="button" class="txt" data-pin="cancel">${t('cancel')}</button>`:'<span></span>')+
+    `<button type="button" data-pin="0">0</button><button type="button" class="txt" data-pin="del" aria-label="${t('delete')}">⌫</button>`;
+  r.innerHTML=`<div class="pin" role="dialog" aria-modal="true" aria-label="${esc(o.title)}"><img src="${ICON}" alt=""><h1>${esc(o.title)}</h1>${o.sub?`<p>${esc(o.sub)}</p>`:''}<div class="dots" aria-hidden="true">${'<i></i>'.repeat(4)}</div><p class="err" role="alert"></p><div class="keys">${keys}</div></div>`;document.body.style.overflow='hidden';}
+function hidePad(){const r=$('#pinroot');if(r)r.remove();padState=null;if(!$('#sheet-root').innerHTML)document.body.style.overflow='';}
+async function padKey(k){const p=padState;if(!p||p.busy)return;const r=$('#pinroot');
+  if(k==='cancel'){hidePad();return;}if(k==='forgot'){hidePad();st.locked=false;return signOutNow();}
+  if(k==='del')p.entered=p.entered.slice(0,-1);else if(p.entered.length<4)p.entered+=k;
+  r.querySelectorAll('.dots i').forEach((d,i)=>d.classList.toggle('on',i<p.entered.length));
+  if(p.entered.length<4)return;p.busy=true;const res=await p.onPin(p.entered);
+  if(padState!==p)return;p.busy=false;p.entered='';r.querySelectorAll('.dots i').forEach(d=>d.classList.remove('on'));
+  if(res){r.querySelector('.err').textContent=res;const b=r.querySelector('.pin');b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');}}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-pin]');if(b)padKey(b.dataset.pin);});
+document.addEventListener('keydown',e=>{if(!padState)return;if(/^[0-9]$/.test(e.key))padKey(e.key);else if(e.key==='Backspace')padKey('del');});
+function showUnlock(){if(padState&&padState.unlock)return;pad({unlock:true,title:t('enterPin'),sub:st.me.email,forgot:true,onPin:async x=>{const v=PIN.get();if(!v){st.locked=false;hidePad();render();return;}
+  if(await hashPin(v.salt,x)===v.hash){v.fails=0;PIN.set(v);st.locked=false;hidePad();if(st.data)render();else await refresh();return;}
+  v.fails=(v.fails||0)+1;PIN.set(v);if(v.fails>=5){hidePad();st.locked=false;await signOutNow();toast(t('pinTooMany'));return;}return t('pinWrong',{n:5-v.fails});}});}
+function lockNow(){if(!st.me||st.me.role==='pending'||!PIN.get())return;st.locked=true;closeSheet();render();}
+function askCurrent(then){pad({title:t('currentPin'),cancel:true,onPin:async x=>{const v=PIN.get();if(v&&await hashPin(v.salt,x)===v.hash){hidePad();then();return;}return t('pinWrongShort');}});}
+function setPinFlow(){pad({title:t('newPin'),sub:t('pinHelp'),cancel:true,onPin:async a=>{pad({title:t('confirmPin'),cancel:true,onPin:async b=>{
+  if(a!==b){setPinFlow();setTimeout(()=>{const e=$('#pinroot .err');if(e)e.textContent=t('pinMismatch');},0);return;}
+  const salt=newSalt();PIN.set({salt,hash:await hashPin(salt,a),fails:0});hidePad();toast(t('pinSaved'));settings();}});}});}
+const lockAfter=()=>+(S.get('dt_lock_after')||0);
+let hiddenAt=0;
+window.dtHidden=()=>{if(!hiddenAt)hiddenAt=Date.now();};
+window.dtShown=()=>{if(!hiddenAt)return;const away=Date.now()-hiddenAt;hiddenAt=0;if(away>=lockAfter()*1000)lockNow();};
+document.addEventListener('visibilitychange',()=>document.visibilityState==='hidden'?window.dtHidden():window.dtShown());
+async function signOutNow(){if(st.me)PIN.set(null);await api.signOut();st.me=null;st.data=null;st.view='home';st.locked=false;closeSheet();hidePad();render();}
+
+function render(){if(!st.me){hidePad();return renderAuth();}if(st.me.role==='pending')return renderPending();if(st.locked&&PIN.get()){$('#app').innerHTML='';return showUnlock();}if(st.data)renderApp();}
 
 /* ---------- helpers ---------- */
 let toastT;function toast(m){const e=$('#toast');e.textContent=m;e.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('on'),2600);}
@@ -189,9 +226,11 @@ async function settings(){const adm=can.edit();let users=[];if(adm&&!api.demo){t
   <h3>${t('banksAdmin')}</h3>${adm?`<form id="bankf" class="two" style="grid-template-columns:1fr auto;align-items:end"><label class="f">${t('addBank')}<input id="b-name" autocomplete="off" placeholder="${t('bankName')}"></label><button class="btn" type="submit">${t('add')}</button></form>`:`<p class="hint">${t('adminOnly')}</p>`}
   <div class="list">${banks.map(b=>`<div class="item"><span>${esc(bankName(b.name))}</span>${adm&&!b.is_other?`<button class="iconbtn" style="width:32px;height:32px" data-act="delbank" data-id="${b.id}" aria-label="${t('delete')} ${esc(b.name)}">${svg(IC.x)}</button>`:''}</div>`).join('')}</div>
   ${adm&&!api.demo?`<h3>${t('users')}</h3><p class="hint">${t('roleHelp')}</p><div class="list">${users.map(u=>`<div class="item"><span>${esc(u.email)}</span><select data-user="${u.id}" aria-label="${t('role')}" ${u.owner?'disabled':''}>${['admin','user','observer','pending'].map(r=>`<option value="${r}" ${r===u.role?'selected':''}>${t('role_'+r)}</option>`).join('')}</select></div>`).join('')}</div>`:''}
+  <h3>${t('pinLock')}</h3>${PIN.get()?`<label class="f">${t('lockAfter')}<select id="s-lock">${[[0,'lockNow'],[60,'lock1'],[300,'lock5']].map(([v,k])=>`<option value="${v}" ${v===lockAfter()?'selected':''}>${t(k)}</option>`).join('')}</select></label><div class="actions"><button class="btn ghost" data-act="pinchange">${t('changePin')}</button><button class="btn danger" data-act="pinoff">${t('pinOff')}</button></div>`:`<p class="hint">${t('pinIntro')}</p><button class="btn ghost block" data-act="pinset">${t('setPin')}</button>`}
   <h3>${t('account')}</h3><p class="hint">${esc(st.me.email)} · ${t('role_'+st.me.role)}</p>
   ${api.demo?`<button class="btn ghost block" data-act="resetdemo">${t('resetDemo')}</button>`:''}<button class="btn danger block" data-act="signout">${t('signOut')}</button>`);
   $('#s-lang').onchange=e=>{st.lang=e.target.value;S.set('dt_lang',st.lang);render();settings();};
+  const sl=$('#s-lock');if(sl)sl.onchange=e=>S.set('dt_lock_after',e.target.value);
   $('#s-warn').onchange=e=>{st.warn=+e.target.value;S.set('dt_warn',st.warn);render();};
   const bf=$('#bankf');if(bf)bf.onsubmit=async e=>{e.preventDefault();const n=$('#b-name').value.trim();if(!n)return;try{await api.addBank(n);await refresh();settings();toast(t('bankAdded'));}catch(x){toast(errMsg(x));}};
   document.querySelectorAll('[data-user]').forEach(s=>s.onchange=async()=>{try{await api.setRole(s.dataset.user,s.value);toast(t('saved'));}catch(x){toast(errMsg(x));settings();}});}
@@ -233,6 +272,9 @@ document.addEventListener('click',async ev=>{const el=ev.target.closest('[data-a
    openpaid(){const p=paidList().find(x=>x.kind===k&&x.id===id);if(p)detail(k,p.rec.id,p);},
    pay(){confirmSheet(t(k==='check'?'confirmPayCheck':'confirmPayLoan'),()=>run(()=>k==='check'?api.payCheck(id):api.payLoan(id,st.data.loans.find(l=>l.id===id)),t('movedPaid')));},
    undo(){confirmSheet(t('confirmUndo'),()=>run(()=>{if(k==='check')return api.undoCheck(id);const p=st.data.payments.find(x=>x.id===id);return api.undoLoanPayment(id,p,st.data.loans.find(l=>l.id===p.loan_id));},t('movedBack')));},
+   pinset(){setPinFlow();},
+   pinchange(){askCurrent(setPinFlow);},
+   pinoff(){askCurrent(()=>{PIN.set(null);toast(t('pinRemoved'));settings();});},
    delay(){delayForm(st.data.checks.find(c=>c.id===id));},
    dplus(){},
    edit(){k==='check'?checkForm(st.data.checks.find(c=>c.id===id)):loanForm(st.data.loans.find(c=>c.id===id));},
@@ -243,7 +285,7 @@ document.addEventListener('click',async ev=>{const el=ev.target.closest('[data-a
    async demo(){st.me=await api.demoSignIn(k);await refresh();},
    async resetdemo(){api.reset();closeSheet();await refresh();},
    authswap(){st.authMode=st.authMode==='login'?'signup':'login';st.msg='';render();},
-   async signout(){await api.signOut();st.me=null;st.data=null;st.view='home';closeSheet();render();},
+   async signout(){await signOutNow();},
    async recheck(){await boot();}
   };
   if(A[act])await A[act]();
@@ -253,7 +295,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('[r
 document.addEventListener('submit',async e=>{if(e.target.id!=='authf')return;e.preventDefault();const em=$('#au-email').value.trim(),pw=$('#au-pass').value;st.msg='';
   try{const me=st.authMode==='login'?await api.signIn(em,pw):await api.signUp(em,pw);if(!me){st.authMode='login';st.msg=t('confirmEmail');render();return;}st.me=me;if(me.role!=='pending')await refresh();else render();}catch(x){st.msg=errMsg(x);render();}});
 window.dtBack=function(){if($('#sheet-root').innerHTML){closeSheet();return true;}if(st.me&&st.view!=='home'){st.view='home';render();return true;}return false;};
-async function boot(){try{st.me=await api.restore();}catch(e){st.me=null;toast(errMsg(e));}if(st.me&&st.me.role!=='pending')await refresh();else render();}
+async function boot(){try{st.me=await api.restore();}catch(e){st.me=null;toast(errMsg(e));}if(st.me&&PIN.get())st.locked=true;if(st.me&&st.me.role!=='pending')await refresh();else render();}
 setInterval(()=>{if(st.me&&st.me.role!=='pending'&&!api.demo&&document.visibilityState==='visible'&&!$('#sheet-root').innerHTML&&document.activeElement.id!=='q')refresh();},300000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&st.me&&st.me.role!=='pending'&&!api.demo&&!$('#sheet-root').innerHTML)refresh();});
 if('serviceWorker' in navigator&&location.protocol==='https:'&&!window.DT_NO_SW)navigator.serviceWorker.register('sw.js').catch(()=>{});
