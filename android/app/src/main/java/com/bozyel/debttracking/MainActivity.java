@@ -9,6 +9,7 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
+import android.window.OnBackInvokedDispatcher;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -33,6 +34,11 @@ public class MainActivity extends Activity {
         web.setWebChromeClient(new WebChromeClient());
         web.addJavascriptInterface(new Bridge(), "DebtAndroid");
         setContentView(web);
+        // Back swipe / back button: let the app go back a page first (Android 13 and newer).
+        if (Build.VERSION.SDK_INT >= 33) {
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::handleBack);
+        }
         if (state != null) web.restoreState(state);
         else web.loadUrl("file:///android_asset/index.html");
     }
@@ -56,10 +62,16 @@ public class MainActivity extends Activity {
         if (web != null) web.evaluateJavascript("window.dtShown&&window.dtShown()", null);
     }
 
+    // Android 12 and older.
     @Override
     public void onBackPressed() {
-        web.evaluateJavascript("window.dtBack?window.dtBack():false", value -> {
-            if (!"true".equals(value)) finish();
+        handleBack();
+    }
+
+    /** Goes back one page inside the app; closes the app only from the Overview page. */
+    private void handleBack() {
+        web.evaluateJavascript("window.dtBack?String(window.dtBack()):'false'", value -> {
+            if (!"\"true\"".equals(value) && !"true".equals(value)) finish();
         });
     }
 
