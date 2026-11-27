@@ -20,7 +20,7 @@
   const DEFAULT_BANKS=['Akbank','Ziraat Bank','Halkbank','Yapı Kredi','Denizbank','İş Bankası','TEB','Garanti','Ziraat Katılım','QNB'];
   function seed(){
     const t=logic.today(),a=n=>logic.addDays(t,n);
-    const c=(d,amt,cur,no,bank,payee,gb,note,paid)=>({id:uid(),due_date:a(d),amount:amt,currency:cur,check_no:no,bank,payee,given_bank:gb,note,paid_on:paid==null?null:a(paid),created_at:new Date().toISOString()});
+    const c=(d,amt,cur,no,bank,payee,gb,note,paid)=>({id:uid(),owner:no==='7731902'?'Örnek Müşteri A.Ş.':'',due_date:a(d),amount:amt,currency:cur,check_no:no,bank,payee,given_bank:gb,note,paid_on:paid==null?null:a(paid),created_at:new Date().toISOString()});
     const l=(d,amt,cur,ty,rem,bank,note)=>({id:uid(),due_date:a(d),amount:amt,currency:cur,loan_type:ty,remaining:rem,bank,note,pay_day:logic.parse(a(d)).getDate(),pay_seq:0,created_at:new Date().toISOString()});
     const loans=[{...l(18,42750,'TRY','vat',10,'Sample Vergi Dairesi','Örnek: KDV yapılandırma'),section:'tax'},l(3,48500,'TRY','vehicle',14,'Garanti','Örnek: çekici kredisi'),l(12,2150,'USD','machine',9,'Akbank','Sample: excavator'),l(21,126000,'TRY','commercial',6,'İş Bankası',''),l(26,1800,'EUR','vehicle',4,'QNB','')];
     return{banks:[...DEFAULT_BANKS.map((n,i)=>({id:'b'+i,name:n,is_other:false,sort:(i+1)*10})),{id:'bo',name:'Others',is_other:true,sort:9999}],
